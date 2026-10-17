@@ -1,7 +1,7 @@
 diff --git a/src/device/controller/inputconvert/inputconvertgame.h b/src/device/controller/inputconvert/inputconvertgame.h
 --- a/src/device/controller/inputconvert/inputconvertgame.h
 +++ b/src/device/controller/inputconvert/inputconvertgame.h
-@@ -72,3 +72,4 @@ private slots:
+@@ -72,2 +72,3 @@ private slots:
      void onSteerWheelTimer();
 +    void onSteerWheelKeyStateTimer();
      void onDragTimer();
