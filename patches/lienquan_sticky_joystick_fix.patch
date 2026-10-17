@@ -119,3 +119,28 @@ diff --git a/src/device/controller/inputconvert/inputconvertgame.cpp b/src/devic
          sendTouchDownEvent(id, node.data.steerWheel.centerPos);
  
          getDelayQueue(node.data.steerWheel.centerPos, node.data.steerWheel.centerPos+offset,
+@@ -859,5 +859,23 @@ bool InputConvertGame::switchGameMap()
+ bool InputConvertGame::switchGameMap()
+ {
+     if (m_gameMap && m_ctrlSkillAim.key != Qt::Key_unknown) {
+         stopSkillAim();
+     }
++    if (m_gameMap) {
++        if (m_ctrlSteerWheel.delayData.timer->isActive()) {
++            m_ctrlSteerWheel.delayData.timer->stop();
++        }
++        m_ctrlSteerWheel.delayData.queueTimer.clear();
++        m_ctrlSteerWheel.delayData.queuePos.clear();
++        const int touchId = getTouchID(m_ctrlSteerWheel.touchKey);
++        if (touchId >= 0) {
++            sendTouchUpEvent(touchId, m_ctrlSteerWheel.delayData.currentPos);
++            detachTouchID(m_ctrlSteerWheel.touchKey);
++        }
++        m_ctrlSteerWheel.touchKey = Qt::Key_unknown;
++        m_ctrlSteerWheel.pressedUp = false;
++        m_ctrlSteerWheel.pressedRight = false;
++        m_ctrlSteerWheel.pressedDown = false;
++        m_ctrlSteerWheel.pressedLeft = false;
++        m_ctrlSteerWheel.delayData.pressedNum = 0;
++    }
+
