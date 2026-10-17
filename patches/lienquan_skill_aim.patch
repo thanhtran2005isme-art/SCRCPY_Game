@@ -249,12 +249,30 @@ diff --git a/src/device/controller/inputconvert/inputconvertgame.cpp b/src/devic
  bool InputConvertGame::processMouseClick(const QMouseEvent *from)
  {
      const KeyMap::KeyMapNode &node = m_keyMap.getKeyMapNodeMouse(from->button());
-@@ -714,6 +859,9 @@
+@@ -714,6 +859,27 @@
  
  bool InputConvertGame::switchGameMap()
  {
 +    if (m_gameMap && m_ctrlSkillAim.key != Qt::Key_unknown) {
 +        stopSkillAim();
++    }
++    if (m_gameMap) {
++        if (m_ctrlSteerWheel.delayData.timer->isActive()) {
++            m_ctrlSteerWheel.delayData.timer->stop();
++        }
++        m_ctrlSteerWheel.delayData.queueTimer.clear();
++        m_ctrlSteerWheel.delayData.queuePos.clear();
++        const int touchId = getTouchID(m_ctrlSteerWheel.touchKey);
++        if (touchId >= 0) {
++            sendTouchUpEvent(touchId, m_ctrlSteerWheel.delayData.currentPos);
++            detachTouchID(m_ctrlSteerWheel.touchKey);
++        }
++        m_ctrlSteerWheel.touchKey = Qt::Key_unknown;
++        m_ctrlSteerWheel.pressedUp = false;
++        m_ctrlSteerWheel.pressedRight = false;
++        m_ctrlSteerWheel.pressedDown = false;
++        m_ctrlSteerWheel.pressedLeft = false;
++        m_ctrlSteerWheel.delayData.pressedNum = 0;
 +    }
      m_gameMap = !m_gameMap;
      qInfo() << QString("current keymap mode: %1").arg(m_gameMap ? "custom" : "normal");
