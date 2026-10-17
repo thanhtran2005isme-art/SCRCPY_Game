@@ -1,0 +1,123 @@
+diff --git a/src/device/controller/inputconvert/inputconvertgame.h b/src/device/controller/inputconvert/inputconvertgame.h
+--- a/src/device/controller/inputconvert/inputconvertgame.h
++++ b/src/device/controller/inputconvert/inputconvertgame.h
+@@ -72,6 +72,7 @@ private slots:
+     void onSteerWheelTimer();
++    void onSteerWheelKeyStateTimer();
+     void onDragTimer();
+
+ private:
+@@ -101,6 +102,7 @@
+         // for delay
+         struct {
+             QPointF currentPos;
+             QTimer* timer = nullptr;
++            QTimer* keyStateTimer = nullptr;
+             QQueue<QPointF> queuePos;
+             QQueue<quint32> queueTimer;
+             int pressedNum = 0;
+diff --git a/src/device/controller/inputconvert/inputconvertgame.cpp b/src/device/controller/inputconvert/inputconvertgame.cpp
+--- a/src/device/controller/inputconvert/inputconvertgame.cpp
++++ b/src/device/controller/inputconvert/inputconvertgame.cpp
+@@ -7,6 +7,10 @@
+ #include <QRandomGenerator>
+ 
++#ifdef Q_OS_WIN32
++#include <Windows.h>
++#endif
++
+ #ifdef Q_OS_MACOS
+ #include <CoreGraphics/CoreGraphics.h>
+ #endif
+@@ -17,6 +21,11 @@ InputConvertGame::InputConvertGame(Controller *controller) : InputConvertNormal(controller) {
+     m_ctrlSteerWheel.delayData.timer = new QTimer(this);
+     m_ctrlSteerWheel.delayData.timer->setSingleShot(true);
+     connect(m_ctrlSteerWheel.delayData.timer, &QTimer::timeout, this, &InputConvertGame::onSteerWheelTimer);
++#ifdef Q_OS_WIN32
++    m_ctrlSteerWheel.delayData.keyStateTimer = new QTimer(this);
++    m_ctrlSteerWheel.delayData.keyStateTimer->setInterval(35);
++    connect(m_ctrlSteerWheel.delayData.keyStateTimer, &QTimer::timeout, this, &InputConvertGame::onSteerWheelKeyStateTimer);
++    m_ctrlSteerWheel.delayData.keyStateTimer->start();
++#endif
+ }
+@@ -247,6 +256,40 @@ void InputConvertGame::onSteerWheelTimer() {
+     }
+ }
+ 
++// Windows can occasionally lose a key-release event when focus changes.
++// Poll the physical WASD state as a failsafe so a virtual joystick touch
++// cannot remain pressed after the user releases the key.
++void InputConvertGame::onSteerWheelKeyStateTimer()
++{
++#ifdef Q_OS_WIN32
++    if (!m_gameMap || m_ctrlSteerWheel.delayData.pressedNum <= 0 ||
++        m_ctrlSteerWheel.touchKey == Qt::Key_unknown) {
++        return;
++    }
++
++    const KeyMap::KeyMapNode &node = m_keyMap.getKeyMapNodeKey(m_ctrlSteerWheel.touchKey);
++    if (node.type != KeyMap::KMT_STEER_WHEEL) {
++        return;
++    }
++
++    auto isDown = [](int key) {
++        // Qt letter/digit key values match Win32 virtual-key values.
++        // Leave special keys to the normal Qt press/release handling.
++        if ((key >= Qt::Key_A && key <= Qt::Key_Z) ||
++            (key >= Qt::Key_0 && key <= Qt::Key_9)) {
++            return (GetAsyncKeyState(key) & 0x8000) != 0;
++        }
++        return true;
++    };
++
++    auto releaseIfUp = [this, &node, &isDown](int key, bool pressed) {
++        if (pressed && !isDown(key)) {
++            QKeyEvent releaseEvent(QEvent::KeyRelease, key, Qt::NoModifier);
++            processSteerWheel(node, &releaseEvent);
++        }
++    };
++
++    releaseIfUp(node.data.steerWheel.up.key, m_ctrlSteerWheel.pressedUp);
++    releaseIfUp(node.data.steerWheel.right.key, m_ctrlSteerWheel.pressedRight);
++    releaseIfUp(node.data.steerWheel.down.key, m_ctrlSteerWheel.pressedDown);
++    releaseIfUp(node.data.steerWheel.left.key, m_ctrlSteerWheel.pressedLeft);
++#endif
++}
++
+ void InputConvertGame::processSteerWheel(const KeyMap::KeyMapNode &node, const QKeyEvent *from)
+ {
+     int key = from->key();
+@@ -281,15 +324,26 @@ void InputConvertGame::processSteerWheel(const KeyMap::KeyMapNode &node, const QKeyEvent *from)
+ 
+     // last key release and timer no active, active timer to detouch
+     if (pressedNum == 0) {
+         if (m_ctrlSteerWheel.delayData.timer->isActive()) {
+             m_ctrlSteerWheel.delayData.timer->stop();
+-            m_ctrlSteerWheel.delayData.queueTimer.clear();
+-            m_ctrlSteerWheel.delayData.queuePos.clear();
+         }
+-
+-        sendTouchUpEvent(getTouchID(m_ctrlSteerWheel.touchKey), m_ctrlSteerWheel.delayData.currentPos);
+-        detachTouchID(m_ctrlSteerWheel.touchKey);
++        m_ctrlSteerWheel.delayData.queueTimer.clear();
++        m_ctrlSteerWheel.delayData.queuePos.clear();
++
++        // A release may arrive twice (native key-up plus watchdog); only send
++        // ACTION_UP while the steering touch ID is still attached.
++        const int touchId = getTouchID(m_ctrlSteerWheel.touchKey);
++        if (touchId >= 0) {
++            sendTouchUpEvent(touchId, m_ctrlSteerWheel.delayData.currentPos);
++            detachTouchID(m_ctrlSteerWheel.touchKey);
++        }
++        m_ctrlSteerWheel.touchKey = Qt::Key_unknown;
++        m_ctrlSteerWheel.delayData.currentPos = node.data.steerWheel.centerPos;
+         return;
+     }
+@@ -305,6 +359,7 @@ void InputConvertGame::processSteerWheel(const KeyMap::KeyMapNode &node, const QKeyEvent *from)
+     if (pressedNum == 1 && flag) {
+         m_ctrlSteerWheel.touchKey = from->key();
+         int id = attachTouchID(m_ctrlSteerWheel.touchKey);
++        m_ctrlSteerWheel.delayData.currentPos = node.data.steerWheel.centerPos;
+         sendTouchDownEvent(id, node.data.steerWheel.centerPos);
+ 
+         getDelayQueue(node.data.steerWheel.centerPos, node.data.steerWheel.centerPos+offset,
