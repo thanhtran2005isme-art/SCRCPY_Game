@@ -135,11 +135,40 @@ diff --git a/src/device/controller/inputconvert/inputconvertgame.cpp b/src/devic
 +        m_ctrlSteerWheel.delayData.currentPos = node.data.steerWheel.centerPos;
          return;
      }
-@@ -305,6 +359,7 @@ void InputConvertGame::processSteerWheel(const KeyMap::KeyMapNode &node, const QKeyEvent *from)
-     if (pressedNum == 1 && flag) {
-         m_ctrlSteerWheel.touchKey = from->key();
-         int id = attachTouchID(m_ctrlSteerWheel.touchKey);
+@@ -305,18 +359,20 @@ void InputConvertGame::processSteerWheel(const KeyMap::KeyMapNode &node, const QKeyEvent *from)
+-    if (pressedNum == 1 && flag) {
+-        m_ctrlSteerWheel.touchKey = from->key();
+-        int id = attachTouchID(m_ctrlSteerWheel.touchKey);
+-        sendTouchDownEvent(id, node.data.steerWheel.centerPos);
+-
+-        getDelayQueue(node.data.steerWheel.centerPos, node.data.steerWheel.centerPos+offset,
+-                      0.01f, 0.002f, 2, 8,
+-                      m_ctrlSteerWheel.delayData.queuePos,
+-                      m_ctrlSteerWheel.delayData.queueTimer);
+-    } else {
+-        getDelayQueue(m_ctrlSteerWheel.delayData.currentPos, node.data.steerWheel.centerPos+offset,
+-                      0.01f, 0.002f, 2, 8,
+-                      m_ctrlSteerWheel.delayData.queuePos,
+-                      m_ctrlSteerWheel.delayData.queueTimer);
+-    }
+-    m_ctrlSteerWheel.delayData.timer->start();
++    // Keep joystick movement deterministic: the old randomized delayed path
++    // caused small pauses when changing direction or pressing diagonally.
++    if (m_ctrlSteerWheel.touchKey == Qt::Key_unknown ||
++        getTouchID(m_ctrlSteerWheel.touchKey) < 0) {
++        m_ctrlSteerWheel.touchKey = from->key();
++        const int newId = attachTouchID(m_ctrlSteerWheel.touchKey);
 +        m_ctrlSteerWheel.delayData.currentPos = node.data.steerWheel.centerPos;
-         sendTouchDownEvent(id, node.data.steerWheel.centerPos);
- 
-         getDelayQueue(node.data.steerWheel.centerPos, node.data.steerWheel.centerPos+offset,
++        sendTouchDownEvent(newId, node.data.steerWheel.centerPos);
++    }
++
++    const int id = getTouchID(m_ctrlSteerWheel.touchKey);
++    if (id >= 0) {
++        const QPointF targetPos = node.data.steerWheel.centerPos + offset;
++        if (targetPos != m_ctrlSteerWheel.delayData.currentPos) {
++            sendTouchMoveEvent(id, targetPos);
++            m_ctrlSteerWheel.delayData.currentPos = targetPos;
++        }
++    }
+     return;
+ }
