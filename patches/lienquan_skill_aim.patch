@@ -1,0 +1,242 @@
+diff --git a/src/device/controller/inputconvert/keymap/keymap.h b/src/device/controller/inputconvert/keymap/keymap.h
+--- a/src/device/controller/inputconvert/keymap/keymap.h
++++ b/src/device/controller/inputconvert/keymap/keymap.h
+@@ -75,5 +75,9 @@
+             struct
+             {
+                 KeyNode keyNode;
+                 bool switchMap = false;
++                // Keep the skill touch down while the mapped key is held and aim it with mouse motion.
++                bool aimWithMouse = false;
++                float aimSpeedX = 1.5f;
++                float aimSpeedY = 1.5f;
+             } click;
+diff --git a/src/device/controller/inputconvert/keymap/keymap.cpp b/src/device/controller/inputconvert/keymap/keymap.cpp
+--- a/src/device/controller/inputconvert/keymap/keymap.cpp
++++ b/src/device/controller/inputconvert/keymap/keymap.cpp
+@@ -165,7 +165,10 @@
+                 keyMapNode.data.click.keyNode.type = key.first;
+                 keyMapNode.data.click.keyNode.key = key.second;
+                 keyMapNode.data.click.keyNode.pos = getItemPos(node, "pos");
+                 keyMapNode.data.click.switchMap = getItemBool(node, "switchMap");
++                keyMapNode.data.click.aimWithMouse = getItemBool(node, "aimWithMouse");
++                keyMapNode.data.click.aimSpeedX = checkItemDouble(node, "aimSpeedX") ? static_cast<float>(getItemDouble(node, "aimSpeedX")) : 1.5f;
++                keyMapNode.data.click.aimSpeedY = checkItemDouble(node, "aimSpeedY") ? static_cast<float>(getItemDouble(node, "aimSpeedY")) : 1.5f;
+                 keyMapNode.data.click.keyNode.androidKey = static_cast<AndroidKeycode>(getItemDouble(node, "androidKey"));
+                 m_keyMapNodes.push_back(keyMapNode);
+             } break;
+diff --git a/src/device/controller/inputconvert/inputconvertgame.h b/src/device/controller/inputconvert/inputconvertgame.h
+--- a/src/device/controller/inputconvert/inputconvertgame.h
++++ b/src/device/controller/inputconvert/inputconvertgame.h
+@@ -43,3 +43,5 @@
+     // click
+     void processKeyClick(const QPointF &clickPos, bool clickTwice, bool switchMap, const QKeyEvent *from);
++    void processSkillAim(const KeyMap::KeyMapNode &node, const QKeyEvent *from);
++    void stopSkillAim();
+ 
+@@ -55,4 +57,5 @@
+     // mouse
+     bool processMouseClick(const QMouseEvent *from);
+     bool processMouseMove(const QMouseEvent *from);
++    bool processSkillAimMouseMove(const QMouseEvent *from);
+     void moveCursorTo(const QMouseEvent *from, const QPoint &localPosPixel);
+@@ -119,5 +122,17 @@
+     } m_ctrlMouseMove;
+ 
++    // While a skill is held, a separate virtual finger drags from its button to the aim point.
++    struct
++    {
++        int key = Qt::Key_unknown;
++        QPointF currentPos = { 0.0, 0.0 };
++        QPointF lastMousePos = { 0.0, 0.0 };
++        bool hasLastMousePos = false;
++        float speedX = 1.5f;
++        float speedY = 1.5f;
++        bool cursorCaptured = false;
++    } m_ctrlSkillAim;
++
+     // for drag delay
+     struct {
+         QPointF currentPos;
+diff --git a/src/device/controller/inputconvert/inputconvertgame.cpp b/src/device/controller/inputconvert/inputconvertgame.cpp
+--- a/src/device/controller/inputconvert/inputconvertgame.cpp
++++ b/src/device/controller/inputconvert/inputconvertgame.cpp
+@@ -37,4 +37,8 @@
+     if (!m_needBackMouseMove && m_gameMap) {
+         updateSize(frameSize, showSize);
++        // While a skill is held, mouse motion moves the skill touch instead of the camera touch.
++        if (m_ctrlSkillAim.key != Qt::Key_unknown && processSkillAimMouseMove(from)) {
++            return;
++        }
+         // mouse move
+         if (m_keyMap.isValidMouseMoveMap()) {
+@@ -116,5 +120,9 @@
+         // 处理普通按键
+         case KeyMap::KMT_CLICK:
++            if (node.data.click.aimWithMouse) {
++                processSkillAim(node, from);
++                return;
++            }
+             processKeyClick(node.data.click.keyNode.pos, false, node.data.click.switchMap, from);
+             processAndroidKey(node.data.click.keyNode.androidKey, from);
+             return;
+@@ -152,5 +160,5 @@
+ void InputConvertGame::updateSize(const QSize &frameSize, const QSize &showSize)
+ {
+     if (showSize != m_showSize) {
+-        if (m_gameMap && m_keyMap.isValidMouseMoveMap()) {
++        if (m_gameMap && (m_keyMap.isValidMouseMoveMap() || m_ctrlSkillAim.cursorCaptured)) {
+ #ifdef QT_NO_DEBUG
+@@ -413,8 +421,88 @@
+         }
+         sendTouchUpEvent(getTouchID(from->key()), clickPos);
+         detachTouchID(from->key());
+     }
+ }
+ 
++// Hold a skill key to keep a virtual finger pressed on its skill button.
++// Mouse deltas drag that same finger until the key is released.
++void InputConvertGame::processSkillAim(const KeyMap::KeyMapNode &node, const QKeyEvent *from)
++{
++    if (!from) {
++        return;
++    }
++
++    const int key = from->key();
++    if (QEvent::KeyPress == from->type()) {
++        if (m_ctrlSkillAim.key != Qt::Key_unknown) {
++            stopSkillAim();
++        }
++
++        // Avoid having the camera-look finger and the skill finger fight each other.
++        stopMouseMoveTimer();
++        mouseMoveStopTouch();
++
++        const int id = attachTouchID(key);
++        if (id < 0) {
++            qWarning() << "No free touch ID for skill aim key:" << key;
++            return;
++        }
++
++        m_ctrlSkillAim.key = key;
++        m_ctrlSkillAim.currentPos = node.data.click.keyNode.pos;
++        m_ctrlSkillAim.lastMousePos = m_ctrlMouseMove.lastPos;
++        m_ctrlSkillAim.hasLastMousePos = !m_ctrlMouseMove.lastPos.isNull();
++        m_ctrlSkillAim.speedX = node.data.click.aimSpeedX > 0.001f ? node.data.click.aimSpeedX : 1.5f;
++        m_ctrlSkillAim.speedY = node.data.click.aimSpeedY > 0.001f ? node.data.click.aimSpeedY : 1.5f;
+
++        // If no camera mouse map is configured, capture the cursor only while aiming.
++        if (!m_keyMap.isValidMouseMoveMap()) {
++#ifdef QT_NO_DEBUG
++            emit grabCursor(true);
++#endif
++            hideMouseCursor(true);
++            m_ctrlSkillAim.cursorCaptured = true;
++            m_ctrlSkillAim.hasLastMousePos = false;
++        }
++
++        sendTouchDownEvent(id, m_ctrlSkillAim.currentPos);
++        m_ctrlMouseMove.lastPos = QPointF();
++        m_ctrlMouseMove.lastConverPos = QPointF();
++        return;
++    }
++
++    if (QEvent::KeyRelease == from->type() && m_ctrlSkillAim.key == key) {
++        stopSkillAim();
++    }
++}
++
++void InputConvertGame::stopSkillAim()
++{
++    if (m_ctrlSkillAim.key == Qt::Key_unknown) {
++        return;
++    }
++
++    const int key = m_ctrlSkillAim.key;
++    const int id = getTouchID(key);
++    if (id >= 0) {
++        sendTouchUpEvent(id, m_ctrlSkillAim.currentPos);
++        detachTouchID(key);
++    }
++
++    if (m_ctrlSkillAim.cursorCaptured) {
++#ifdef QT_NO_DEBUG
++        emit grabCursor(false);
++#endif
++        hideMouseCursor(false);
++        m_ctrlSkillAim.cursorCaptured = false;
++    }
++
++    m_ctrlSkillAim.key = Qt::Key_unknown;
++    m_ctrlSkillAim.hasLastMousePos = false;
++    m_ctrlSkillAim.lastMousePos = QPointF();
++    m_ctrlMouseMove.lastPos = QPointF();
++    m_ctrlMouseMove.lastConverPos = QPointF();
++}
++
+ void InputConvertGame::processKeyClickMulti(const KeyMap::DelayClickNode *nodes, const int count, const QKeyEvent *from)
+ {
+@@ -543,3 +631,55 @@
+ // -------- mouse event --------
+ 
++bool InputConvertGame::processSkillAimMouseMove(const QMouseEvent *from)
++{
++    if (!from || m_ctrlSkillAim.key == Qt::Key_unknown) {
++        return false;
++    }
++    // Do not let mouse buttons inject extra touches while a skill is being aimed.
++    if (from->type() != QEvent::MouseMove) {
++        return true;
++    }
++
++    // The camera mapper warps the cursor at window borders. Re-seed after warping to avoid jumps.
++    if (checkCursorPos(from)) {
++        m_ctrlSkillAim.hasLastMousePos = false;
++        m_ctrlMouseMove.lastPos = QPointF();
++        return true;
++    }
++
++    QPointF mousePos;
++#if (QT_VERSION < QT_VERSION_CHECK(6, 0, 0))
++    mousePos = from->localPos();
++#else
++    mousePos = from->position();
++#endif
++
++    if (!m_ctrlSkillAim.hasLastMousePos) {
++        m_ctrlSkillAim.lastMousePos = mousePos;
++        m_ctrlSkillAim.hasLastMousePos = true;
++        return true;
++    }
++
++    const QPointF delta = mousePos - m_ctrlSkillAim.lastMousePos;
++    m_ctrlSkillAim.lastMousePos = mousePos;
++    if (m_showSize.width() <= 0 || m_showSize.height() <= 0 || delta.isNull()) {
++        return true;
++    }
++
++    QPointF nextPos = m_ctrlSkillAim.currentPos;
++    nextPos.rx() += delta.x() / (m_showSize.width() * m_ctrlSkillAim.speedX);
++    nextPos.ry() += delta.y() / (m_showSize.height() * m_ctrlSkillAim.speedY);
++    nextPos.setX(qBound<qreal>(0.01, nextPos.x(), 0.99));
++    nextPos.setY(qBound<qreal>(0.01, nextPos.y(), 0.99));
++
++    if (nextPos != m_ctrlSkillAim.currentPos) {
++        m_ctrlSkillAim.currentPos = nextPos;
++        const int id = getTouchID(m_ctrlSkillAim.key);
++        if (id >= 0) {
++            sendTouchMoveEvent(id, m_ctrlSkillAim.currentPos);
++        }
++    }
++    return true;
++}
++
+ bool InputConvertGame::processMouseClick(const QMouseEvent *from)
+@@ -715,3 +855,7 @@
+ bool InputConvertGame::switchGameMap()
+ {
++    // Release any virtual skill finger if key mapping is disabled mid-cast.
++    if (m_gameMap && m_ctrlSkillAim.key != Qt::Key_unknown) {
++        stopSkillAim();
++    }
+     m_gameMap = !m_gameMap;
