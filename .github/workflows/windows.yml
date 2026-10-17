@@ -78,7 +78,7 @@ jobs:
       - name: Apply Liên Quân skill-aim patch
         shell: cmd
         run: |
-          echo Applying smooth joystick, default Liên Quan joystick coordinates, and physical skill-key release polling
+          echo Applying smooth WASD, screenshot-calibrated joystick and skill buttons, and physical skill-key release polling
           cd QtScrcpy\QtScrcpyCore
           git apply --check ..\..\patches\lienquan_skill_aim.patch
           if errorlevel 1 exit /b 1
