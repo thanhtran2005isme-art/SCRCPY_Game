@@ -22,8 +22,8 @@
       "type": "KMT_CLICK",
       "key": "Key_Space",
       "pos": {
-        "x": 0.908,
-        "y": 0.893
+        "x": 0.902,
+        "y": 0.905
       },
       "switchMap": false
     },
@@ -32,8 +32,8 @@
       "type": "KMT_CLICK",
       "key": "Key_Q",
       "pos": {
-        "x": 0.712,
-        "y": 0.908
+        "x": 0.724,
+        "y": 0.944
       },
       "switchMap": false,
       "aimWithMouse": true,
@@ -45,8 +45,8 @@
       "type": "KMT_CLICK",
       "key": "Key_E",
       "pos": {
-        "x": 0.77,
-        "y": 0.739
+        "x": 0.79,
+        "y": 0.789
       },
       "switchMap": false,
       "aimWithMouse": true,
@@ -58,8 +58,8 @@
       "type": "KMT_CLICK",
       "key": "Key_R",
       "pos": {
-        "x": 0.893,
-        "y": 0.691
+        "x": 0.902,
+        "y": 0.72
       },
       "switchMap": false,
       "aimWithMouse": true,
@@ -71,8 +71,8 @@
       "type": "KMT_CLICK",
       "key": "Key_B",
       "pos": {
-        "x": 0.434,
-        "y": 0.91
+        "x": 0.449,
+        "y": 0.95
       },
       "switchMap": false
     },
@@ -82,7 +82,7 @@
       "key": "Key_H",
       "pos": {
         "x": 0.527,
-        "y": 0.908
+        "y": 0.945
       },
       "switchMap": false
     },
@@ -91,8 +91,8 @@
       "type": "KMT_CLICK",
       "key": "Key_F",
       "pos": {
-        "x": 0.606,
-        "y": 0.908
+        "x": 0.608,
+        "y": 0.945
       },
       "switchMap": false
     }
