@@ -78,6 +78,7 @@ jobs:
       - name: Apply Liên Quân skill-aim patch
         shell: cmd
         run: |
+          echo Applying Liên Quan skill-aim and joystick release safety patches
           cd QtScrcpy\QtScrcpyCore
           git apply --check ..\..\patches\lienquan_skill_aim.patch
           if errorlevel 1 exit /b 1
