@@ -93,6 +93,7 @@ jobs:
           ENV_VCVARSALL: ${{ env.vcvarsall-path }}
           ENV_QT_PATH: ${{ env.qt-install-path }}
         run: |
+          git tag v4.2.1
           call python ci\generate-version.py
           call "ci\win\build_for_win.bat" RelWithDebInfo ${{ matrix.msvc-arch }}
       # 获取ref最后一个/后的内容
