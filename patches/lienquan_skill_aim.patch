@@ -1,21 +1,21 @@
 diff --git a/src/device/controller/inputconvert/keymap/keymap.h b/src/device/controller/inputconvert/keymap/keymap.h
 --- a/src/device/controller/inputconvert/keymap/keymap.h
 +++ b/src/device/controller/inputconvert/keymap/keymap.h
-@@ -75,5 +75,9 @@
-             struct
+@@ -76,6 +76,10 @@
              {
                  KeyNode keyNode;
                  bool switchMap = false;
-+                // Keep the skill touch down while the mapped key is held and aim it with mouse motion.
++                // Optional mouse-driven drag while this key is held (for directional skills).
 +                bool aimWithMouse = false;
 +                float aimSpeedX = 1.5f;
 +                float aimSpeedY = 1.5f;
              } click;
+             struct
+             {
 diff --git a/src/device/controller/inputconvert/keymap/keymap.cpp b/src/device/controller/inputconvert/keymap/keymap.cpp
 --- a/src/device/controller/inputconvert/keymap/keymap.cpp
 +++ b/src/device/controller/inputconvert/keymap/keymap.cpp
-@@ -165,7 +165,10 @@
-                 keyMapNode.data.click.keyNode.type = key.first;
+@@ -166,6 +166,9 @@
                  keyMapNode.data.click.keyNode.key = key.second;
                  keyMapNode.data.click.keyNode.pos = getItemPos(node, "pos");
                  keyMapNode.data.click.switchMap = getItemBool(node, "switchMap");
@@ -28,22 +28,28 @@ diff --git a/src/device/controller/inputconvert/keymap/keymap.cpp b/src/device/c
 diff --git a/src/device/controller/inputconvert/inputconvertgame.h b/src/device/controller/inputconvert/inputconvertgame.h
 --- a/src/device/controller/inputconvert/inputconvertgame.h
 +++ b/src/device/controller/inputconvert/inputconvertgame.h
-@@ -43,3 +43,5 @@
+@@ -42,6 +42,8 @@
+ 
      // click
      void processKeyClick(const QPointF &clickPos, bool clickTwice, bool switchMap, const QKeyEvent *from);
 +    void processSkillAim(const KeyMap::KeyMapNode &node, const QKeyEvent *from);
 +    void stopSkillAim();
  
-@@ -55,4 +57,5 @@
+     // click mutil
+     void processKeyClickMulti(const KeyMap::DelayClickNode *nodes, const int count, const QKeyEvent *from);
+@@ -55,6 +57,7 @@
      // mouse
      bool processMouseClick(const QMouseEvent *from);
      bool processMouseMove(const QMouseEvent *from);
 +    bool processSkillAimMouseMove(const QMouseEvent *from);
      void moveCursorTo(const QMouseEvent *from, const QPoint &localPosPixel);
-@@ -119,5 +122,17 @@
+     void mouseMoveStartTouch(const QMouseEvent *from);
+     void mouseMoveStopTouch();
+@@ -118,6 +121,18 @@
+         int ignoreCount = 0;
      } m_ctrlMouseMove;
  
-+    // While a skill is held, a separate virtual finger drags from its button to the aim point.
++    // State of a virtual touch used to hold and aim a directional skill.
 +    struct
 +    {
 +        int key = Qt::Key_unknown;
@@ -61,16 +67,19 @@ diff --git a/src/device/controller/inputconvert/inputconvertgame.h b/src/device/
 diff --git a/src/device/controller/inputconvert/inputconvertgame.cpp b/src/device/controller/inputconvert/inputconvertgame.cpp
 --- a/src/device/controller/inputconvert/inputconvertgame.cpp
 +++ b/src/device/controller/inputconvert/inputconvertgame.cpp
-@@ -37,4 +37,8 @@
+@@ -36,6 +36,10 @@
+ 
      if (!m_needBackMouseMove && m_gameMap) {
          updateSize(frameSize, showSize);
-+        // While a skill is held, mouse motion moves the skill touch instead of the camera touch.
++        // While a skill key is held, move that skill's virtual finger with the mouse.
 +        if (m_ctrlSkillAim.key != Qt::Key_unknown && processSkillAimMouseMove(from)) {
 +            return;
 +        }
          // mouse move
          if (m_keyMap.isValidMouseMoveMap()) {
-@@ -116,5 +120,9 @@
+             if (processMouseMove(from)) {
+@@ -115,6 +119,10 @@
+             return;
          // 处理普通按键
          case KeyMap::KMT_CLICK:
 +            if (node.data.click.aimWithMouse) {
@@ -80,25 +89,27 @@ diff --git a/src/device/controller/inputconvert/inputconvertgame.cpp b/src/devic
              processKeyClick(node.data.click.keyNode.pos, false, node.data.click.switchMap, from);
              processAndroidKey(node.data.click.keyNode.androidKey, from);
              return;
-@@ -152,5 +160,5 @@
+@@ -152,7 +160,7 @@
  void InputConvertGame::updateSize(const QSize &frameSize, const QSize &showSize)
  {
      if (showSize != m_showSize) {
 -        if (m_gameMap && m_keyMap.isValidMouseMoveMap()) {
 +        if (m_gameMap && (m_keyMap.isValidMouseMoveMap() || m_ctrlSkillAim.cursorCaptured)) {
  #ifdef QT_NO_DEBUG
-@@ -413,8 +421,88 @@
-         }
-         sendTouchUpEvent(getTouchID(from->key()), clickPos);
-         detachTouchID(from->key());
+             // show size change, resize grab cursor
+             emit grabCursor(true);
+@@ -416,6 +424,89 @@
      }
  }
  
-+// Hold a skill key to keep a virtual finger pressed on its skill button.
-+// Mouse deltas drag that same finger until the key is released.
++
++// -------- mouse-aimed skill --------
++
++// Holding the configured key presses the skill button. Mouse deltas move the
++// same virtual finger; releasing the key sends ACTION_UP to cast the skill.
 +void InputConvertGame::processSkillAim(const KeyMap::KeyMapNode &node, const QKeyEvent *from)
 +{
-+    if (!from) {
++    if (!from || from->isAutoRepeat()) {
 +        return;
 +    }
 +
@@ -108,7 +119,7 @@ diff --git a/src/device/controller/inputconvert/inputconvertgame.cpp b/src/devic
 +            stopSkillAim();
 +        }
 +
-+        // Avoid having the camera-look finger and the skill finger fight each other.
++        // Avoid two virtual fingers competing for the same game gesture.
 +        stopMouseMoveTimer();
 +        mouseMoveStopTouch();
 +
@@ -125,7 +136,7 @@ diff --git a/src/device/controller/inputconvert/inputconvertgame.cpp b/src/devic
 +        m_ctrlSkillAim.speedX = node.data.click.aimSpeedX > 0.001f ? node.data.click.aimSpeedX : 1.5f;
 +        m_ctrlSkillAim.speedY = node.data.click.aimSpeedY > 0.001f ? node.data.click.aimSpeedY : 1.5f;
 +
-+        // If no camera mouse map is configured, capture the cursor only while aiming.
++        // In configs without mouseMoveMap, capture/hide the mouse only while aiming.
 +        if (!m_keyMap.isValidMouseMoveMap()) {
 +#ifdef QT_NO_DEBUG
 +            emit grabCursor(true);
@@ -176,20 +187,24 @@ diff --git a/src/device/controller/inputconvert/inputconvertgame.cpp b/src/devic
 +
  void InputConvertGame::processKeyClickMulti(const KeyMap::DelayClickNode *nodes, const int count, const QKeyEvent *from)
  {
-@@ -543,3 +631,55 @@
+     if (QEvent::KeyPress != from->type()) {
+@@ -542,6 +633,60 @@
+ 
  // -------- mouse event --------
  
++
 +bool InputConvertGame::processSkillAimMouseMove(const QMouseEvent *from)
 +{
 +    if (!from || m_ctrlSkillAim.key == Qt::Key_unknown) {
 +        return false;
 +    }
-+    // Do not let mouse buttons inject extra touches while a skill is being aimed.
++
++    // Do not inject an extra mouse-touch while the skill finger is active.
 +    if (from->type() != QEvent::MouseMove) {
 +        return true;
 +    }
 +
-+    // The camera mapper warps the cursor at window borders. Re-seed after warping to avoid jumps.
++    // Reset the delta baseline after cursor recentering to avoid an aiming jump.
 +    if (checkCursorPos(from)) {
 +        m_ctrlSkillAim.hasLastMousePos = false;
 +        m_ctrlMouseMove.lastPos = QPointF();
@@ -232,11 +247,15 @@ diff --git a/src/device/controller/inputconvert/inputconvertgame.cpp b/src/devic
 +}
 +
  bool InputConvertGame::processMouseClick(const QMouseEvent *from)
-@@ -715,3 +855,7 @@
+ {
+     const KeyMap::KeyMapNode &node = m_keyMap.getKeyMapNodeMouse(from->button());
+@@ -714,6 +859,9 @@
+ 
  bool InputConvertGame::switchGameMap()
  {
-+    // Release any virtual skill finger if key mapping is disabled mid-cast.
 +    if (m_gameMap && m_ctrlSkillAim.key != Qt::Key_unknown) {
 +        stopSkillAim();
 +    }
      m_gameMap = !m_gameMap;
+     qInfo() << QString("current keymap mode: %1").arg(m_gameMap ? "custom" : "normal");
+ 
