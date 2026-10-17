@@ -5,13 +5,13 @@
       "comment": "Di chuyen tuong - WASD",
       "type": "KMT_STEER_WHEEL",
       "centerPos": {
-        "x": 0.205,
-        "y": 0.9
+        "x": 0.159375,
+        "y": 0.847656
       },
-      "leftOffset": 0.05,
-      "rightOffset": 0.05,
-      "upOffset": 0.06,
-      "downOffset": 0.06,
+      "leftOffset": 0.04,
+      "rightOffset": 0.04,
+      "upOffset": 0.05,
+      "downOffset": 0.05,
       "leftKey": "Key_A",
       "rightKey": "Key_D",
       "upKey": "Key_W",
