@@ -83,6 +83,10 @@ jobs:
           if errorlevel 1 exit /b 1
           git apply ..\..\patches\lienquan_skill_aim.patch
           if errorlevel 1 exit /b 1
+          git apply --check ..\..\patches\lienquan_sticky_joystick_fix.patch
+          if errorlevel 1 exit /b 1
+          git apply ..\..\patches\lienquan_sticky_joystick_fix.patch
+          if errorlevel 1 exit /b 1
           git diff --check
           if errorlevel 1 exit /b 1
       # 编译msvc
