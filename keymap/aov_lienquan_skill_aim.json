@@ -4,11 +4,14 @@
     {
       "comment": "Di chuyen tuong - WASD",
       "type": "KMT_STEER_WHEEL",
-      "centerPos": { "x": 0.205, "y": 0.81 },
-      "leftOffset": 0.09,
-      "rightOffset": 0.09,
-      "upOffset": 0.08,
-      "downOffset": 0.08,
+      "centerPos": {
+        "x": 0.205,
+        "y": 0.9
+      },
+      "leftOffset": 0.05,
+      "rightOffset": 0.05,
+      "upOffset": 0.06,
+      "downOffset": 0.06,
       "leftKey": "Key_A",
       "rightKey": "Key_D",
       "upKey": "Key_W",
@@ -18,14 +21,20 @@
       "comment": "Danh thuong",
       "type": "KMT_CLICK",
       "key": "Key_Space",
-      "pos": { "x": 0.908, "y": 0.893 },
+      "pos": {
+        "x": 0.908,
+        "y": 0.893
+      },
       "switchMap": false
     },
     {
       "comment": "Ky nang 1 - huong bang Q (toa do uoc luong)",
       "type": "KMT_CLICK",
       "key": "Key_Q",
-      "pos": { "x": 0.712, "y": 0.908 },
+      "pos": {
+        "x": 0.712,
+        "y": 0.908
+      },
       "switchMap": false,
       "aimWithMouse": true,
       "aimSpeedX": 1.5,
@@ -35,7 +44,10 @@
       "comment": "Ky nang 2 - huong bang E (toa do uoc luong)",
       "type": "KMT_CLICK",
       "key": "Key_E",
-      "pos": { "x": 0.77, "y": 0.739 },
+      "pos": {
+        "x": 0.77,
+        "y": 0.739
+      },
       "switchMap": false,
       "aimWithMouse": true,
       "aimSpeedX": 1.5,
@@ -45,7 +57,10 @@
       "comment": "Chieu cuoi - huong bang R (toa do uoc luong)",
       "type": "KMT_CLICK",
       "key": "Key_R",
-      "pos": { "x": 0.893, "y": 0.691 },
+      "pos": {
+        "x": 0.893,
+        "y": 0.691
+      },
       "switchMap": false,
       "aimWithMouse": true,
       "aimSpeedX": 1.5,
@@ -55,21 +70,30 @@
       "comment": "Bien ve",
       "type": "KMT_CLICK",
       "key": "Key_B",
-      "pos": { "x": 0.434, "y": 0.91 },
+      "pos": {
+        "x": 0.434,
+        "y": 0.91
+      },
       "switchMap": false
     },
     {
       "comment": "Hoi mau",
       "type": "KMT_CLICK",
       "key": "Key_H",
-      "pos": { "x": 0.527, "y": 0.908 },
+      "pos": {
+        "x": 0.527,
+        "y": 0.908
+      },
       "switchMap": false
     },
     {
       "comment": "Toc bien",
       "type": "KMT_CLICK",
       "key": "Key_F",
-      "pos": { "x": 0.606, "y": 0.908 },
+      "pos": {
+        "x": 0.606,
+        "y": 0.908
+      },
       "switchMap": false
     }
   ]
