@@ -1,13 +1,13 @@
 diff --git a/src/device/controller/inputconvert/inputconvertgame.h b/src/device/controller/inputconvert/inputconvertgame.h
 --- a/src/device/controller/inputconvert/inputconvertgame.h
 +++ b/src/device/controller/inputconvert/inputconvertgame.h
-@@ -72,6 +72,7 @@ private slots:
+@@ -72,3 +72,4 @@ private slots:
      void onSteerWheelTimer();
 +    void onSteerWheelKeyStateTimer();
      void onDragTimer();
 
  private:
-@@ -101,6 +102,7 @@
+@@ -101,7 +102,8 @@
          // for delay
          struct {
              QPointF currentPos;
@@ -19,7 +19,7 @@ diff --git a/src/device/controller/inputconvert/inputconvertgame.h b/src/device/
 diff --git a/src/device/controller/inputconvert/inputconvertgame.cpp b/src/device/controller/inputconvert/inputconvertgame.cpp
 --- a/src/device/controller/inputconvert/inputconvertgame.cpp
 +++ b/src/device/controller/inputconvert/inputconvertgame.cpp
-@@ -7,6 +7,10 @@
+@@ -7,5 +7,9 @@
  #include <QRandomGenerator>
  
 +#ifdef Q_OS_WIN32
@@ -29,7 +29,7 @@ diff --git a/src/device/controller/inputconvert/inputconvertgame.cpp b/src/devic
  #ifdef Q_OS_MACOS
  #include <CoreGraphics/CoreGraphics.h>
  #endif
-@@ -17,6 +21,11 @@ InputConvertGame::InputConvertGame(Controller *controller) : InputConvertNormal(controller) {
+@@ -17,4 +21,10 @@ InputConvertGame::InputConvertGame(Controller *controller) : InputConvertNormal(controller) {
      m_ctrlSteerWheel.delayData.timer = new QTimer(this);
      m_ctrlSteerWheel.delayData.timer->setSingleShot(true);
      connect(m_ctrlSteerWheel.delayData.timer, &QTimer::timeout, this, &InputConvertGame::onSteerWheelTimer);
@@ -40,7 +40,7 @@ diff --git a/src/device/controller/inputconvert/inputconvertgame.cpp b/src/devic
 +    m_ctrlSteerWheel.delayData.keyStateTimer->start();
 +#endif
  }
-@@ -247,6 +256,40 @@ void InputConvertGame::onSteerWheelTimer() {
+@@ -247,6 +257,46 @@ void InputConvertGame::onSteerWheelTimer() {
      }
  }
  
@@ -87,7 +87,7 @@ diff --git a/src/device/controller/inputconvert/inputconvertgame.cpp b/src/devic
  void InputConvertGame::processSteerWheel(const KeyMap::KeyMapNode &node, const QKeyEvent *from)
  {
      int key = from->key();
-@@ -281,15 +324,26 @@ void InputConvertGame::processSteerWheel(const KeyMap::KeyMapNode &node, const QKeyEvent *from)
+@@ -281,13 +334,20 @@ void InputConvertGame::processSteerWheel(const KeyMap::KeyMapNode &node, const QKeyEvent *from)
  
      // last key release and timer no active, active timer to detouch
      if (pressedNum == 0) {
