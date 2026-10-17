@@ -38,7 +38,7 @@ diff --git a/src/device/controller/inputconvert/inputconvertgame.cpp b/src/devic
 +    m_ctrlSteerWheel.delayData.keyStateTimer->start();
 +#endif
  }
-@@ -247,6 +257,70 @@ void InputConvertGame::onSteerWheelTimer() {
+@@ -247,6 +257,77 @@ void InputConvertGame::onSteerWheelTimer() {
      }
  }
  
@@ -47,6 +47,13 @@ diff --git a/src/device/controller/inputconvert/inputconvertgame.cpp b/src/devic
 +void InputConvertGame::onSteerWheelKeyStateTimer()
 +{
 +#ifdef Q_OS_WIN32
++    // Poll the physical skill key too: if Qt misses its release event, stop
++    // the skill touch only when the user has actually released Q/E/R.
++    if (m_ctrlSkillAim.key != Qt::Key_unknown &&
++        (GetAsyncKeyState(m_ctrlSkillAim.key) & 0x8000) == 0) {
++        stopSkillAim();
++    }
++
 +    if (m_ctrlSteerWheel.touchKey == Qt::Key_unknown) {
 +        return;
 +    }
