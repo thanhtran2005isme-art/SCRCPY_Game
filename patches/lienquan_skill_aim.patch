@@ -124,7 +124,7 @@ diff --git a/src/device/controller/inputconvert/inputconvertgame.cpp b/src/devic
 +        m_ctrlSkillAim.hasLastMousePos = !m_ctrlMouseMove.lastPos.isNull();
 +        m_ctrlSkillAim.speedX = node.data.click.aimSpeedX > 0.001f ? node.data.click.aimSpeedX : 1.5f;
 +        m_ctrlSkillAim.speedY = node.data.click.aimSpeedY > 0.001f ? node.data.click.aimSpeedY : 1.5f;
-
++
 +        // If no camera mouse map is configured, capture the cursor only while aiming.
 +        if (!m_keyMap.isValidMouseMoveMap()) {
 +#ifdef QT_NO_DEBUG
